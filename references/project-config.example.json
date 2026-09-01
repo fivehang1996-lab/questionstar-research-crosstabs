@@ -1,0 +1,18 @@
+{
+  "derived_segments": [
+    {
+      "family": "整体体验分层",
+      "field": "指标标签_Q4整体体验",
+      "question": 4,
+      "source": "item_index",
+      "groups": [
+        {"label": "高体验（4–5分）", "values": [4, 5]},
+        {"label": "非高体验（1–3分）", "values": [1, 2, 3]}
+      ]
+    }
+  ],
+  "box_metrics": [
+    {"question": 4, "top_n": 2, "bottom_n": 2}
+  ],
+  "family_order": ["总体", "玩家经验互斥", "整体体验分层", "参与平台", "画像_性别"]
+}

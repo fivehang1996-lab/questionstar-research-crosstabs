@@ -1,0 +1,19 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.log
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+
+# Raw survey exports and generated workbooks stay local
+*.xls
+*.xlsx
+*.csv
+*.tsv
+data/
+output/
+outputs/
+tmp/

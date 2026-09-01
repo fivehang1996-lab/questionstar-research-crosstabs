@@ -1,0 +1,4 @@
+interface:
+  display_name: "问卷星研究交叉表"
+  short_description: "生成标签分群、显著性、T2B/B2B与排序版问卷数表"
+  default_prompt: "Use $questionstar-research-crosstabs to clean the survey data and generate a validated Chinese crosstab workbook with configured segment labels, significance, T2B/B2B, and optional Total sorting."
