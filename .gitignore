@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *.log
+node_modules
+build/
 
 # Local credentials and environment files
 .env
@@ -17,3 +19,8 @@ data/
 output/
 outputs/
 tmp/
+
+# Curated synthetic example outputs are safe to publish.
+!examples/**/outputs/
+!examples/**/outputs/**
+!examples/**/*.xlsx

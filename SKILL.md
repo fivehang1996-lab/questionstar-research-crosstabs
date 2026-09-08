@@ -24,6 +24,8 @@ Generate analyst-facing survey tables with a production-table layout. Treat cont
 
 Sorting mode: default to the questionnaire's original option order. Enable the optional Total-descending display only when the user explicitly requests a sorted version. Read [references/sorting-contract.md](references/sorting-contract.md) before sorting and record the switch in the data-quality sheet.
 
+For an end-to-end synthetic sanity check or a concrete input/output example, read [examples/synthetic-game-survey/README.md](examples/synthetic-game-survey/README.md). Never reuse its question numbers, sample controls, option labels, or expected cells in a real project.
+
 ## Required outputs
 
 - `Index`

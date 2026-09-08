@@ -42,7 +42,7 @@ def main(records_path, labels_path, config_path, output_path):
     records = json.loads(Path(records_path).read_text())
     config = json.loads(Path(config_path).read_text())
     if labels_path == "-":
-        meta = {"labels": [{"matched": True} for _ in records]}
+        meta = {"labels": [{"matched": True} for _ in records], "linkage": False}
     else:
         meta = json.loads(Path(labels_path).read_text())
     labels = meta["labels"]

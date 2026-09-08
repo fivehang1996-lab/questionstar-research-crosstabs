@@ -1,0 +1,15 @@
+{
+  "source_type": "synthetic_example",
+  "source_note": "仓库内合成演示数据，不来自真实问卷星账号",
+  "vid": "DEMO-GAME-001",
+  "answer_total": 192,
+  "answer_valid": 180,
+  "records_written": 180,
+  "seed": 8122026,
+  "deidentified": true,
+  "fields_removed": [
+    "IP",
+    "设备标识",
+    "外部联系方式"
+  ]
+}

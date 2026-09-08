@@ -1,0 +1,296 @@
+{
+  "title": "《星港计划》概念测试体验问卷（合成案例）",
+  "vid": "DEMO-GAME-001",
+  "answer_total": 192,
+  "questions": [
+    {
+      "q_index": 1,
+      "q_title": "本次测试主要使用的平台是？",
+      "q_type": 3,
+      "q_subtype": 3,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "移动端"
+        },
+        {
+          "item_index": 2,
+          "item_title": "PC/主机"
+        }
+      ]
+    },
+    {
+      "q_index": 2,
+      "q_title": "以下哪类游戏经验最符合你？",
+      "q_type": 3,
+      "q_subtype": 3,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "横版动作核心"
+        },
+        {
+          "item_index": 2,
+          "item_title": "二游ARPG"
+        },
+        {
+          "item_index": 3,
+          "item_title": "银河恶魔城"
+        },
+        {
+          "item_index": 4,
+          "item_title": "泛用户"
+        }
+      ]
+    },
+    {
+      "q_index": 3,
+      "q_title": "你对本次测试的整体满意度如何？",
+      "q_type": 3,
+      "q_subtype": 3,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "很不满意"
+        },
+        {
+          "item_index": 2,
+          "item_title": "不满意"
+        },
+        {
+          "item_index": 3,
+          "item_title": "一般"
+        },
+        {
+          "item_index": 4,
+          "item_title": "满意"
+        },
+        {
+          "item_index": 5,
+          "item_title": "非常满意"
+        }
+      ]
+    },
+    {
+      "q_index": 4,
+      "q_title": "你认为游戏是否容易上手？",
+      "q_type": 3,
+      "q_subtype": 3,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "非常难"
+        },
+        {
+          "item_index": 2,
+          "item_title": "比较难"
+        },
+        {
+          "item_index": 3,
+          "item_title": "一般"
+        },
+        {
+          "item_index": 4,
+          "item_title": "比较容易"
+        },
+        {
+          "item_index": 5,
+          "item_title": "非常容易"
+        }
+      ]
+    },
+    {
+      "q_index": 5,
+      "q_title": "正式上线后，你继续游玩的意愿如何？",
+      "q_type": 3,
+      "q_subtype": 3,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "一定不会"
+        },
+        {
+          "item_index": 2,
+          "item_title": "可能不会"
+        },
+        {
+          "item_index": 3,
+          "item_title": "不确定"
+        },
+        {
+          "item_index": 4,
+          "item_title": "可能会"
+        },
+        {
+          "item_index": 5,
+          "item_title": "一定会"
+        }
+      ]
+    },
+    {
+      "q_index": 6,
+      "q_title": "本次体验中，你认为做得较好的部分有哪些？",
+      "q_type": 4,
+      "q_subtype": 4,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "战斗手感"
+        },
+        {
+          "item_index": 2,
+          "item_title": "美术表现"
+        },
+        {
+          "item_index": 3,
+          "item_title": "角色设计"
+        },
+        {
+          "item_index": 4,
+          "item_title": "世界探索"
+        },
+        {
+          "item_index": 5,
+          "item_title": "剧情设定"
+        },
+        {
+          "item_index": 6,
+          "item_title": "社交体验"
+        },
+        {
+          "item_index": 7,
+          "item_title": "其他"
+        }
+      ]
+    },
+    {
+      "q_index": 7,
+      "q_title": "请评价以下体验模块。",
+      "q_type": 7,
+      "q_subtype": 7,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "很差"
+        },
+        {
+          "item_index": 2,
+          "item_title": "较差"
+        },
+        {
+          "item_index": 3,
+          "item_title": "一般"
+        },
+        {
+          "item_index": 4,
+          "item_title": "较好"
+        },
+        {
+          "item_index": 5,
+          "item_title": "很好"
+        }
+      ],
+      "item_rows": [
+        {
+          "item_index": 1,
+          "item_title": "战斗反馈"
+        },
+        {
+          "item_index": 2,
+          "item_title": "关卡节奏"
+        },
+        {
+          "item_index": 3,
+          "item_title": "视觉表现"
+        }
+      ]
+    },
+    {
+      "q_index": 8,
+      "q_title": "你有多大可能向朋友推荐这款游戏？",
+      "q_type": 3,
+      "q_subtype": 302,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "0"
+        },
+        {
+          "item_index": 2,
+          "item_title": "1"
+        },
+        {
+          "item_index": 3,
+          "item_title": "2"
+        },
+        {
+          "item_index": 4,
+          "item_title": "3"
+        },
+        {
+          "item_index": 5,
+          "item_title": "4"
+        },
+        {
+          "item_index": 6,
+          "item_title": "5"
+        },
+        {
+          "item_index": 7,
+          "item_title": "6"
+        },
+        {
+          "item_index": 8,
+          "item_title": "7"
+        },
+        {
+          "item_index": 9,
+          "item_title": "8"
+        },
+        {
+          "item_index": 10,
+          "item_title": "9"
+        },
+        {
+          "item_index": 11,
+          "item_title": "10"
+        }
+      ]
+    },
+    {
+      "q_index": 9,
+      "q_title": "请选出最希望优先优化的三项并排序。",
+      "q_type": 4,
+      "q_subtype": 402,
+      "items": [
+        {
+          "item_index": 1,
+          "item_title": "新手引导"
+        },
+        {
+          "item_index": 2,
+          "item_title": "战斗反馈"
+        },
+        {
+          "item_index": 3,
+          "item_title": "关卡节奏"
+        },
+        {
+          "item_index": 4,
+          "item_title": "剧情演出"
+        },
+        {
+          "item_index": 5,
+          "item_title": "性能优化"
+        }
+      ]
+    },
+    {
+      "q_index": 10,
+      "q_title": "你对后续优化还有哪些建议？",
+      "q_type": 5,
+      "q_subtype": 1,
+      "items": []
+    }
+  ]
+}

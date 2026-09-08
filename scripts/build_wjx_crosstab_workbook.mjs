@@ -219,7 +219,7 @@ function buildTableSheet(sheet, significance) {
       dataRow += 1;
     }
 
-    const percentRows = statRows.filter(r => r.kind === "percent");
+    const percentRows = statRows.filter(r => r.kind === "percent" && !String(r.item || "").startsWith("【指标】"));
     if (percentRows.length) {
       sheet.getRange(`A${dataRow}:${lastCol}${dataRow}`).values = [["---", ...groups.map(() => "---")]];
       sheet.getRange(`A${dataRow}:${lastCol}${dataRow}`).format = {
@@ -279,10 +279,10 @@ index.getRange("A:B").format.columnWidth = 100;
 index.freezePanes.freezeRows(1);
 index.showGridLines = false;
 
-titleBand(info, `${data.metadata.title}｜数表说明`, "用于测试问卷星直连、原生分组交叉表和显著性检验流程。", "H");
+titleBand(info, `${data.metadata.title}｜数表说明`, data.metadata.subtitle || "用于测试问卷星直连、原生分组交叉表和显著性检验流程。", "H");
 const infoRows = [
   ["项目", "内容", "说明"],
-  ["问卷 ID", String(quality.vid), "问卷星 OpenAPI 只读获取"],
+  ["问卷 ID", String(quality.vid), quality.source_receipt?.source_note || "问卷星 OpenAPI 只读获取"],
   ["总回收样本", quality.source_receipt?.answer_total ?? quality.answer_total, "后台 answer_total"],
   ["原始有效样本", quality.source_receipt?.answer_valid ?? quality.answer_valid, "接口 valid=true 返回的答卷"],
   ["本次清洗剔除", Math.max(0, (quality.source_receipt?.answer_valid ?? quality.answer_valid) - quality.answer_valid), "未进入分析的有效答卷"],
@@ -290,14 +290,14 @@ const infoRows = [
   ["外部标签匹配", quality.linkage ? `${quality.linkage.matched}/${quality.linkage.target_total}（${(quality.linkage.coverage * 100).toFixed(1)}%）` : "不适用", quality.linkage ? "未匹配样本保留在 Total、排除于对应标签分组" : "未使用外部标签"],
   ["显著性水平", `双侧 p < ${data.metadata.alpha ?? 0.10}`, "比例使用原始人数/基数；均值、NPS、平均名次使用 Welch 检验"],
   ["NPS 编码", "原生 0–10", "0–6 批评者，7–8 中立者，9–10 推荐者；NPS 不带百分号"],
-  ["多选缺失", "-3=未展示/跳题", "问卷已作答时，未被选择的选项按 0 计入分母"],
+  ["多选缺失", data.metadata.multi_select_missing_note || "-3=未展示/跳题", "问卷已作答时，未被选择的选项按 0 计入分母"],
   ["矩阵/排序题", "按实际题型处理", "矩阵逐行统计；排序题输出入选率和平均名次"],
   ["开放题", "仅保留实际填答样本量", "默认不传播开放文本正文"],
   ["分组口径", data.metadata.scope || "配置驱动", quality.group_scope || "总体"],
   ["T2B/B2B", data.metadata.box_metrics?.enabled ? `已启用：${data.metadata.box_metrics.questions.map(q => `Q${q}`).join("、")}` : "未启用", "T2B=最高两档，B2B=最低两档；使用原始人数和有效基数"],
   ["选项排序", quality.sorting?.enabled ? "已启用：Total 降序" : "未启用", quality.sorting?.enabled ? `排序题目：${(quality.sorting.sorted_questions || []).map(q => `Q${q}`).join("、") || "无"}；有序题保留问卷原顺序` : "默认保留问卷原选项顺序"],
-  ["重要限制", "经历标签可重叠", "按引导词执行独立样本检验；重叠人群结果应作为探索性信号解释"],
-  ["最小样本阈值", "未设置", "用户引导词未规定阈值；低基数组合需谨慎解释"],
+  ["重要限制", data.metadata.overlap_warning === false ? "当前配置无重叠分组" : "经历标签可重叠", data.metadata.overlap_warning === false ? "原生分组和指标分层在各自分组族内互斥" : "按引导词执行独立样本检验；重叠人群结果应作为探索性信号解释"],
+  ["最小样本阈值", data.metadata.minimum_base_note || "未设置", "低基数组合需谨慎解释"],
   ["接口说明", "https://www.wjx.cn/help/help.aspx?catid=140", "问卷星 ApiKey 官方说明"],
 ];
 info.getRange(`A4:C${3 + infoRows.length}`).values = infoRows;
@@ -311,7 +311,7 @@ info.getRange(`5:${3 + infoRows.length}`).format.rowHeight = 34;
 info.freezePanes.freezeRows(4);
 info.showGridLines = false;
 
-titleBand(mapping, `${data.metadata.title}｜变量映射`, "题号与题型来自问卷星实际投放结构，不沿用历史列号。", "F");
+titleBand(mapping, `${data.metadata.title}｜变量映射`, data.metadata.mapping_note || "题号与题型来自问卷星实际投放结构，不沿用历史列号。", "F");
 mapping.getRange("A4:F4").values = [["题号", "题干", "实际题型", "原始类型", "选项数", "处理方式"]];
 mapping.getRange("A4:F4").format = { fill: blue, font: { bold: true, color: headerText }, horizontalAlignment: "center" };
 const mapRows = data.questions.map(q => [
@@ -372,10 +372,15 @@ const previews = [
   ["Index", "A1:B23", "00-index.png"],
   ["说明", "A1:H20", "01-info.png"],
   ["体验问卷大表", "A1:P40", "02-table.png"],
+  ["体验问卷大表", "A41:P105", "02-table-middle.png"],
+  ["体验问卷大表", "A106:P153", "02-table-late.png"],
   ["体验问卷显著性检验", "A1:P40", "03-significance.png"],
+  ["体验问卷显著性检验", "A41:P105", "03-significance-middle.png"],
+  ["体验问卷显著性检验", "A106:P153", "03-significance-late.png"],
   ["变量映射", "A1:F26", "04-mapping.png"],
   ["数据质量", "A1:D34", "05-quality.png"],
 ];
+wb.recalculate();
 for (const [sheetName, range, fileName] of previews) {
   const blob = await wb.render({ sheetName, range, scale: 1.2, format: "png" });
   await fs.writeFile(path.join(previewDir, fileName), new Uint8Array(await blob.arrayBuffer()));

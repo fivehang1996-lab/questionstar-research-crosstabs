@@ -1,0 +1,28 @@
+{
+  "answer_valid": 180,
+  "question_bases": {
+    "1": 180,
+    "2": 180,
+    "3": 180,
+    "4": 174,
+    "5": 180,
+    "6": 180,
+    "7": 180,
+    "8": 175,
+    "9": 180,
+    "10": 114
+  },
+  "cells": [
+    {"name": "Q3 整体满意度 Mean", "question": 3, "item": "", "kind": "mean", "group_index": 0, "value": 3.4, "tolerance": 1e-12},
+    {"name": "Q3 整体满意度 T2B", "question": 3, "item": "【指标】T2B（4–5分）", "kind": "percent", "group_index": 0, "value": 0.5055555555555555, "tolerance": 1e-12},
+    {"name": "Q3 横版动作核心 Mean", "question": 3, "item": "", "kind": "mean", "group_index": 1, "value": 3.80327868852459, "tolerance": 1e-12},
+    {"name": "Q4 上手表现 T2B", "question": 4, "item": "【指标】T2B（4–5分）", "kind": "percent", "group_index": 0, "value": 0.43103448275862066, "tolerance": 1e-12},
+    {"name": "Q5 继续游玩 T2B", "question": 5, "item": "【指标】T2B（4–5分）", "kind": "percent", "group_index": 0, "value": 0.32222222222222224, "tolerance": 1e-12},
+    {"name": "Q6 战斗手感选择率", "question": 6, "item": "战斗手感", "kind": "percent", "group_index": 0, "value": 0.45, "tolerance": 1e-12},
+    {"name": "Q7 战斗反馈很好占比", "question": 7, "item": "战斗反馈｜很好", "kind": "matrix_percent", "group_index": 0, "value": 0.18888888888888888, "tolerance": 1e-12},
+    {"name": "Q8 总体 NPS", "question": 8, "item": "", "kind": "nps", "group_index": 0, "value": 10.857142857142858, "tolerance": 1e-12},
+    {"name": "Q9 新手引导入选率", "question": 9, "item": "新手引导", "kind": "percent", "group_index": 0, "value": 0.8277777777777777, "tolerance": 1e-12},
+    {"name": "Q9 新手引导平均名次", "question": 9, "item": "新手引导", "kind": "rank_mean", "group_index": 0, "value": 1.5906040268456376, "tolerance": 1e-12},
+    {"name": "Q10 开放反馈实际填答数", "question": 10, "item": "", "kind": "total", "group_index": 0, "value": 114, "tolerance": 0}
+  ]
+}

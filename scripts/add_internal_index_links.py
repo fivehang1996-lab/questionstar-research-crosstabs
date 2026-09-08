@@ -29,10 +29,10 @@ def question_rows(analysis: dict) -> list[int]:
     starts: list[int] = []
     cursor = 3
     for block in blocks:
-        starts.append(cursor + 3)
+        starts.append(cursor + 4)
         stat_rows = [row for row in block if row["kind"] != "total"]
         percent_rows = [row for row in stat_rows if row["kind"] == "percent"]
-        data_row = cursor + 4 + len(stat_rows)
+        data_row = cursor + 5 + len(stat_rows)
         if percent_rows:
             data_row += 2
         cursor = data_row + 2
@@ -73,9 +73,47 @@ def inject_hyperlinks(xml_bytes: bytes, row_targets: list[int]) -> bytes:
     raise ValueError("Could not find a valid hyperlink insertion point")
 
 
+def cell_text(xml_bytes: bytes, address: str) -> str:
+    root = ET.fromstring(xml_bytes)
+    cell = root.find(f".//{{{NS_MAIN}}}c[@r='{address}']")
+    if cell is None:
+        return ""
+    value = cell.find(f"{{{NS_MAIN}}}v")
+    if value is not None and value.text:
+        return value.text
+    inline = cell.find(f".//{{{NS_MAIN}}}t")
+    return inline.text if inline is not None and inline.text else ""
+
+
+def verify_targets(files: dict[str, bytes], analysis: dict, row_targets: list[int]) -> dict:
+    index_target = sheet_target(files, "Index")
+    index_root = ET.fromstring(files[index_target])
+    links = index_root.findall(f".//{{{NS_MAIN}}}hyperlink")
+    expected_count = len(row_targets) * 2
+    if len(links) != expected_count:
+        raise ValueError(f"Index hyperlink count mismatch: {len(links)} vs {expected_count}")
+
+    questions = list(dict.fromkeys(int(row["q_index"]) for row in analysis["rows"]))
+    expected = {}
+    for index, (question, target_row) in enumerate(zip(questions, row_targets), start=2):
+        expected[f"A{index}"] = ("体验问卷大表", question, target_row)
+        expected[f"B{index}"] = ("体验问卷显著性检验", question, target_row)
+
+    actual = {link.attrib.get("ref"): link.attrib.get("location", "") for link in links}
+    for ref, (sheet_name, question, target_row) in expected.items():
+        location = f"'{sheet_name}'!A{target_row}"
+        if actual.get(ref) != location:
+            raise ValueError(f"Index hyperlink target mismatch for {ref}: {actual.get(ref)!r} vs {location!r}")
+        target = sheet_target(files, sheet_name)
+        value = cell_text(files[target], f"A{target_row}")
+        if not value.startswith(f"[Q{question}]."):
+            raise ValueError(f"Index hyperlink {ref} does not land on Q{question} title: {value!r}")
+    return {"questions": len(questions), "hyperlinks": len(links), "targets_verified": True}
+
+
 def main() -> None:
-    if len(sys.argv) != 3:
-        raise SystemExit("Usage: add_internal_index_links.py <analysis.json> <workbook.xlsx>")
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != "--verify-only"):
+        raise SystemExit("Usage: add_internal_index_links.py <analysis.json> <workbook.xlsx> [--verify-only]")
     analysis_path = Path(sys.argv[1])
     workbook_path = Path(sys.argv[2])
     analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
@@ -83,21 +121,29 @@ def main() -> None:
 
     with zipfile.ZipFile(workbook_path, "r") as source:
         files = {name: source.read(name) for name in source.namelist()}
-    index_target = sheet_target(files, "Index")
-    files[index_target] = inject_hyperlinks(files[index_target], targets)
+    verify_only = len(sys.argv) == 4
+    if not verify_only:
+        index_target = sheet_target(files, "Index")
+        files[index_target] = inject_hyperlinks(files[index_target], targets)
 
-    fd, temp_name = tempfile.mkstemp(prefix="index-links-", suffix=".xlsx", dir=workbook_path.parent)
-    os.close(fd)
-    try:
-        with zipfile.ZipFile(temp_name, "w", compression=zipfile.ZIP_DEFLATED) as output:
-            for name, payload in files.items():
-                output.writestr(name, payload)
-        os.replace(temp_name, workbook_path)
-    finally:
-        if os.path.exists(temp_name):
-            os.unlink(temp_name)
+        fd, temp_name = tempfile.mkstemp(prefix="index-links-", suffix=".xlsx", dir=workbook_path.parent)
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(temp_name, "w", compression=zipfile.ZIP_DEFLATED) as output:
+                for name, payload in files.items():
+                    output.writestr(name, payload)
+            os.replace(temp_name, workbook_path)
+        finally:
+            if os.path.exists(temp_name):
+                os.unlink(temp_name)
 
-    print(json.dumps({"workbook": str(workbook_path), "question_links": len(targets), "hyperlinks": len(targets) * 2}, ensure_ascii=False))
+        with zipfile.ZipFile(workbook_path, "r") as source:
+            files = {name: source.read(name) for name in source.namelist()}
+
+    result = verify_targets(files, analysis, targets)
+    result["workbook"] = workbook_path.name
+    result["mode"] = "verify_only" if verify_only else "inject_and_verify"
+    print(json.dumps(result, ensure_ascii=False))
 
 
 if __name__ == "__main__":

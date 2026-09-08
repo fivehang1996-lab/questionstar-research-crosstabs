@@ -29,6 +29,10 @@ git clone https://github.com/fivehang1996-lab/questionstar-research-crosstabs.gi
 
 完整工作流、输出要求和脚本说明见 [SKILL.md](SKILL.md)。配置示例见 [references/project-config.example.json](references/project-config.example.json)。
 
+## 完整案例
+
+[合成游戏体验问卷案例](examples/synthetic-game-survey/README.md)覆盖 180 名合成玩家、原生分组、指标分层、显著性检验、Mean、T2B/B2B、NPS、矩阵题、排序题和 Index 超链接。仓库内同时提供输入、配置、校验回执、预览图和最终 Excel，可用于快速理解或回归测试。
+
 ## 安全说明
 
 - 问卷星 API Key 只通过环境变量提供，禁止写入配置、日志或输出文件。

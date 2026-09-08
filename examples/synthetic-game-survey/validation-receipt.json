@@ -1,0 +1,275 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "记录数与清洗后有效样本一致",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "问卷题目存在",
+      "passed": true,
+      "detail": 10
+    },
+    {
+      "name": "总体列唯一",
+      "passed": true,
+      "detail": [
+        "总体",
+        "玩家经验互斥",
+        "玩家经验互斥",
+        "玩家经验互斥",
+        "玩家经验互斥",
+        "参与平台",
+        "参与平台",
+        "满意度分层",
+        "满意度分层",
+        "上手表现分层",
+        "上手表现分层",
+        "继续游玩分层",
+        "继续游玩分层",
+        "推荐意愿分层",
+        "推荐意愿分层"
+      ]
+    },
+    {
+      "name": "统计行列宽一致",
+      "passed": true,
+      "detail": {
+        "rows": 76,
+        "groups": 15
+      }
+    },
+    {
+      "name": "质量摘要行列数一致",
+      "passed": true,
+      "detail": [
+        76,
+        76,
+        15,
+        15
+      ]
+    },
+    {
+      "name": "数值均有限",
+      "passed": true,
+      "detail": "无 NaN/Infinity"
+    },
+    {
+      "name": "比例值范围有效",
+      "passed": true,
+      "detail": "percent/matrix_percent 均在 0–1"
+    },
+    {
+      "name": "人数与分母有效",
+      "passed": true,
+      "detail": "0 <= numerator <= denominator"
+    },
+    {
+      "name": "显著性字母仅指向同族其他列",
+      "passed": true,
+      "detail": "不跨族、不指向自身"
+    },
+    {
+      "name": "NPS 范围有效",
+      "passed": true,
+      "detail": "-100 到 100"
+    },
+    {
+      "name": "T2B/B2B 合计不越界",
+      "passed": true,
+      "detail": "同题两项不超过 100%"
+    },
+    {
+      "name": "预期有效样本",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q1 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q2 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q3 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q4 预期基数",
+      "passed": true,
+      "detail": [
+        174,
+        174
+      ]
+    },
+    {
+      "name": "Q5 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q6 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q7 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q8 预期基数",
+      "passed": true,
+      "detail": [
+        175,
+        175
+      ]
+    },
+    {
+      "name": "Q9 预期基数",
+      "passed": true,
+      "detail": [
+        180,
+        180
+      ]
+    },
+    {
+      "name": "Q10 预期基数",
+      "passed": true,
+      "detail": [
+        114,
+        114
+      ]
+    },
+    {
+      "name": "Q3 整体满意度 Mean",
+      "passed": true,
+      "detail": [
+        3.4,
+        3.4,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q3 整体满意度 T2B",
+      "passed": true,
+      "detail": [
+        0.5055555555555555,
+        0.5055555555555555,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q3 横版动作核心 Mean",
+      "passed": true,
+      "detail": [
+        3.80327868852459,
+        3.80327868852459,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q4 上手表现 T2B",
+      "passed": true,
+      "detail": [
+        0.43103448275862066,
+        0.43103448275862066,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q5 继续游玩 T2B",
+      "passed": true,
+      "detail": [
+        0.32222222222222224,
+        0.32222222222222224,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q6 战斗手感选择率",
+      "passed": true,
+      "detail": [
+        0.45,
+        0.45,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q7 战斗反馈很好占比",
+      "passed": true,
+      "detail": [
+        0.18888888888888888,
+        0.18888888888888888,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q8 总体 NPS",
+      "passed": true,
+      "detail": [
+        10.857142857142858,
+        10.857142857142858,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q9 新手引导入选率",
+      "passed": true,
+      "detail": [
+        0.8277777777777777,
+        0.8277777777777777,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q9 新手引导平均名次",
+      "passed": true,
+      "detail": [
+        1.5906040268456376,
+        1.5906040268456376,
+        1e-12
+      ]
+    },
+    {
+      "name": "Q10 开放反馈实际填答数",
+      "passed": true,
+      "detail": [
+        114,
+        114,
+        0.0
+      ]
+    }
+  ],
+  "failed": []
+}

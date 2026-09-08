@@ -1,0 +1,6 @@
+{
+  "requiredSheetsPresent": true,
+  "tableTitlePresent": true,
+  "significanceTitlePresent": true,
+  "errorScan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}"
+}

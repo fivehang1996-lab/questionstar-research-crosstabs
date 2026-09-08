@@ -1,0 +1,84 @@
+{
+  "alpha": 0.1,
+  "scope": "合成游戏体验问卷案例",
+  "subtitle": "使用合成玩家数据演示原生分组、指标分层、显著性检验、T2B/B2B、NPS、矩阵题与排序题。",
+  "mapping_note": "题号、题型和选项均来自本案例的合成问卷结构。",
+  "multi_select_missing_note": "本案例多选题全部展示并作答",
+  "overlap_warning": false,
+  "minimum_base_note": "案例不设置阈值",
+  "nps_question": 8,
+  "rating_questions": [3, 4, 5],
+  "auto_rating_five_point": true,
+  "native_segments": [
+    {"family": "参与平台", "question": 1},
+    {"family": "玩家经验互斥", "question": 2}
+  ],
+  "derived_segments": [
+    {
+      "family": "满意度分层",
+      "field": "指标标签_Q3满意度",
+      "question": 3,
+      "source": "item_index",
+      "groups": [
+        {"label": "高满意（4–5分）", "values": [4, 5]},
+        {"label": "非高满意（1–3分）", "values": [1, 2, 3]}
+      ]
+    },
+    {
+      "family": "上手表现分层",
+      "field": "指标标签_Q4上手表现",
+      "question": 4,
+      "source": "item_index",
+      "groups": [
+        {"label": "容易上手（4–5分）", "values": [4, 5]},
+        {"label": "非容易上手（1–3分）", "values": [1, 2, 3]}
+      ]
+    },
+    {
+      "family": "继续游玩分层",
+      "field": "指标标签_Q5继续游玩",
+      "question": 5,
+      "source": "item_index",
+      "groups": [
+        {"label": "高意愿（4–5分）", "values": [4, 5]},
+        {"label": "非高意愿（1–3分）", "values": [1, 2, 3]}
+      ]
+    },
+    {
+      "family": "推荐意愿分层",
+      "field": "指标标签_Q8推荐意愿",
+      "question": 8,
+      "source": "item_value",
+      "groups": [
+        {"label": "推荐者（9–10分）", "min": 9, "max": 10},
+        {"label": "非推荐者（0–8分）", "min": 0, "max": 8}
+      ]
+    }
+  ],
+  "box_metrics": [
+    {"question": 3, "top_n": 2, "bottom_n": 2, "top_label": "T2B（4–5分）", "bottom_label": "B2B（1–2分）"},
+    {"question": 4, "top_n": 2, "bottom_n": 2, "top_label": "T2B（4–5分）", "bottom_label": "B2B（1–2分）"},
+    {"question": 5, "top_n": 2, "bottom_n": 2, "top_label": "T2B（4–5分）", "bottom_label": "B2B（1–2分）"}
+  ],
+  "family_order": [
+    "总体",
+    "玩家经验互斥",
+    "参与平台",
+    "满意度分层",
+    "上手表现分层",
+    "继续游玩分层",
+    "推荐意愿分层"
+  ],
+  "indicator_labels": {
+    "1": "玩家平台",
+    "2": "玩家经验",
+    "3": "整体满意度",
+    "4": "上手表现",
+    "5": "继续游玩意愿",
+    "6": "体验亮点",
+    "7": "模块体验",
+    "8": "NPS 推荐意愿",
+    "9": "优化优先级",
+    "10": "开放反馈"
+  }
+}
