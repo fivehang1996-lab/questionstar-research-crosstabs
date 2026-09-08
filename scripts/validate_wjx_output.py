@@ -1,94 +1,127 @@
 #!/usr/bin/env python3
-"""Project-agnostic validation for canonical survey analysis JSON."""
+"""Independent numeric, statistical and structural validation; errors fail closed."""
 import json
 import math
 import sys
 from collections import defaultdict
 from pathlib import Path
+from analyze_wjx_crosstabs import proportion_p, welch_p
 
 
-def main(analysis_path, expectations_path=None):
-    data = json.loads(Path(analysis_path).read_text())
-    expected = json.loads(Path(expectations_path).read_text()) if expectations_path else {}
-    quality, rows, groups = data["quality"], data["rows"], data["groups"]
+def validate(data, expected=None):
+    expected = expected or {}
+    quality,rows,groups = data['quality'],data['rows'],data['groups']
     checks = []
-
-    def check(name, condition, detail):
-        checks.append({"name": name, "passed": bool(condition), "detail": detail})
-
-    check("记录数与清洗后有效样本一致", quality.get("records_loaded") == quality.get("answer_valid"), [quality.get("records_loaded"), quality.get("answer_valid")])
-    check("问卷题目存在", int(quality.get("question_count", 0)) > 0, quality.get("question_count"))
-    check("总体列唯一", sum(group.get("family") == "总体" for group in groups) == 1, [group.get("family") for group in groups])
-    check("统计行列宽一致", all(len(row.get("cells", [])) == len(groups) for row in rows), {"rows": len(rows), "groups": len(groups)})
-    check("质量摘要行列数一致", quality.get("output_row_count") == len(rows) and quality.get("output_column_count") == len(groups), [quality.get("output_row_count"), len(rows), quality.get("output_column_count"), len(groups)])
-
-    finite = True
-    percentage_range = True
-    count_integrity = True
+    def check(name, result, detail=''):
+        checks.append(dict(name=name,passed=bool(result),detail=detail))
+    near = lambda a,b: a is None and b is None or isinstance(a,(float,int)) and isinstance(b,(float,int)) and math.isfinite(a) and math.isfinite(b) and abs(a-b)<1e-8
+    check('总体列唯一且在首列',len([g for g in groups if g['family']=='总体'])==1 and groups[0]['family']=='总体')
+    check('题目和统计行存在',bool(rows) and bool(data['questions']))
+    check('记录ID唯一',quality.get('duplicate_respondent_ids')==0)
+    check('输出规模一致',quality['output_row_count']==len(rows) and quality['output_column_count']==len(groups))
+    check('统计行宽一致',all(len(r['cells'])==len(groups) for r in rows))
+    if not checks[-1]['passed']:
+        return dict(passed=False,checks=checks,failed=[c for c in checks if not c['passed']])
+    check('统计行ID唯一',len({r['id'] for r in rows})==len(rows))
+    check('组ID唯一',len({g['id'] for g in groups})==len(groups))
+    check('定义性分组标记与来源题一致',all(bool(c.get('definition_based'))==(r['q_index'] in g.get('source_questions',[]))
+          for r in rows for c,g in zip(r['cells'],groups)))
+    check('总体样本与载入样本一致',groups[0]['base_n']==quality['records_loaded']==quality['answer_valid'])
+    cleaning = quality.get('cleaning')
+    receipt = quality.get('source_receipt',{})
+    if cleaning:
+        check('清洗人数守恒',cleaning['input_n']==cleaning['retained_n']+cleaning['excluded_n'] and cleaning['retained_n']==quality['answer_valid'])
+    if receipt.get('api_valid_records') is not None:
+        check('拉取回执与分析输入对账',receipt['api_valid_records']==(cleaning['input_n'] if cleaning else quality['records_loaded']))
+    if receipt.get('expected_records') is not None:
+        check('接口应收实收一致',receipt['expected_records']==receipt['api_valid_records'])
+    numeric_ok, sig_ok, details = True, True, []
+    alpha,min_test = data['metadata'].get('alpha',.1),data['metadata'].get('minimum_test_base',0)
     for row in rows:
-        for cell in row.get("cells", []):
-            value = cell.get("value")
-            if isinstance(value, (int, float)) and not math.isfinite(value):
-                finite = False
-            if row.get("kind") in ("percent", "matrix_percent") and value is not None and not 0 <= value <= 1:
-                percentage_range = False
-            numerator, denominator = cell.get("numerator"), cell.get("denominator")
-            if numerator is not None and denominator is not None and not (0 <= numerator <= denominator):
-                count_integrity = False
-    check("数值均有限", finite, "无 NaN/Infinity")
-    check("比例值范围有效", percentage_range, "percent/matrix_percent 均在 0–1")
-    check("人数与分母有效", count_integrity, "0 <= numerator <= denominator")
-
-    letters = defaultdict(set)
-    for group in groups:
-        letters[group.get("family")].add(group.get("letter", ""))
-    significance_ok = True
+        for i,cell in enumerate(row['cells']):
+            value,n = cell['value'],cell['base_n']
+            okay = isinstance(n,int) and 0<=n<=groups[i]['base_n']
+            if row['kind'] in ('total','base'):
+                okay &= value==n
+            elif row['test']=='proportion':
+                x,d = cell['numerator'],cell['denominator']
+                okay &= isinstance(x,int) and isinstance(d,int) and 0<=x<=d and d==n and near(value,x/d if d else None)
+            elif row['test']=='welch':
+                raw = cell['raw']
+                okay &= len(raw)==n and all(isinstance(v,(int,float)) and math.isfinite(v) for v in raw)
+                okay &= near(value,sum(raw)/n*(100 if row['kind']=='nps' else 1) if n else None)
+                if row['kind']=='nps':
+                    okay &= all(v in (-1,0,1) for v in raw)
+            if not okay:
+                details.append(f"{row['id']}/{groups[i]['id']}")
+            numeric_ok &= okay
+            high, comparisons, lows = [], [], []
+            if row['test']!='none' and groups[i]['family']!='总体' and value is not None:
+                for j,g in enumerate(groups):
+                    other=row['cells'][j]
+                    if i==j or g['family']!=groups[i]['family'] or other['value'] is None or min(n,other['base_n'])<min_test:
+                        continue
+                    p=proportion_p(cell['numerator'],cell['denominator'],other['numerator'],other['denominator']) if row['test']=='proportion' else welch_p(cell['raw'],other['raw'])
+                    if p is None:
+                        continue
+                    comparisons.append((g['id'],p))
+                    if p<alpha and value>other['value']:
+                        high.append(g['letter'])
+                    lows.append(p<alpha and value<other['value'])
+            sig_ok &= set(high)==set(cell.get('sig_high',[])) and bool(lows and all(lows))==bool(cell.get('sig_low_all'))
+            saved={c['group_id']:c['p'] for c in cell.get('comparisons',[])}
+            sig_ok &= len(saved)==len(comparisons) and all(near(saved.get(k),p) for k,p in comparisons)
+    check('人数、分母、比例、均值和NPS逐格复核',numeric_ok,details[:20])
+    check('独立重算显著性及比较p值',sig_ok)
+    mapping={r['id']:r for r in rows}
+    distributions=defaultdict(list)
+    box_ok=True
     for row in rows:
-        for index, cell in enumerate(row.get("cells", [])):
-            group = groups[index]
-            allowed = letters[group.get("family")] - {group.get("letter", "")}
-            highs = set(cell.get("sig_high") or [])
-            if not highs.issubset(allowed) or (cell.get("sig_low_all") and highs):
-                significance_ok = False
-    check("显著性字母仅指向同族其他列", significance_ok, "不跨族、不指向自身")
-
-    by_question = defaultdict(list)
-    for row in rows:
-        by_question[int(row["q_index"])].append(row)
-    nps_ok = True
-    box_ok = True
-    for question_rows in by_question.values():
-        for row in [row for row in question_rows if row.get("kind") == "nps"]:
-            for cell in row["cells"]:
-                if cell.get("value") is not None and not -100 <= cell["value"] <= 100:
-                    nps_ok = False
-        top = next((row for row in question_rows if str(row.get("item", "")).startswith("【指标】T2B")), None)
-        bottom = next((row for row in question_rows if str(row.get("item", "")).startswith("【指标】B2B")), None)
-        if top and bottom:
-            for top_cell, bottom_cell in zip(top["cells"], bottom["cells"]):
-                if top_cell.get("value") is not None and bottom_cell.get("value") is not None and top_cell["value"] + bottom_cell["value"] > 1 + 1e-9:
-                    box_ok = False
-    check("NPS 范围有效", nps_ok, "-100 到 100")
-    check("T2B/B2B 合计不越界", box_ok, "同题两项不超过 100%")
-
-    if "answer_valid" in expected:
-        check("预期有效样本", quality.get("answer_valid") == expected["answer_valid"], [quality.get("answer_valid"), expected["answer_valid"]])
-    for question, expected_base in expected.get("question_bases", {}).items():
-        actual = quality.get("question_bases", {}).get(str(question))
-        check(f"Q{question} 预期基数", actual == expected_base, [actual, expected_base])
-    for item in expected.get("cells", []):
-        row = next((row for row in rows if int(row["q_index"]) == int(item["question"]) and row.get("item") == item.get("item", "") and row.get("kind") == item["kind"]), None)
-        actual = row["cells"][int(item.get("group_index", 0))]["value"] if row else None
-        tolerance = float(item.get("tolerance", 1e-9))
-        check(item.get("name", f"Q{item['question']} cell"), actual is not None and abs(actual - float(item["value"])) <= tolerance, [actual, item["value"], tolerance])
-
-    failed = [item for item in checks if not item["passed"]]
-    result = {"passed": not failed, "checks": checks, "failed": failed}
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    raise SystemExit(1 if failed else 0)
+        if row.get('category') in ('t2b','b2b'):
+            sources=[mapping.get(k) for k in row['source_row_ids']]
+            box_ok &= bool(sources) and all(s is not None and s['q_index']==row['q_index'] and s.get('matrix_row')==row.get('matrix_row') for s in sources)
+            if all(s is not None for s in sources):
+                box_ok &= all(c['numerator']==sum(s['cells'][i]['numerator'] for s in sources) for i,c in enumerate(row['cells']))
+        elif row['kind'] in ('percent','matrix_percent'):
+            distributions[(row['q_index'],row.get('matrix_row'))].append(row)
+    check('T2B/B2B与原始选项人数一致',box_ok)
+    dist_ok,means_ok=True,True
+    qmap={q['q_index']:q for q in data['questions']}
+    for (q,ri),options in distributions.items():
+        meta=qmap[q]
+        if meta['q_type']==4 and not meta.get('is_nps'):
+            continue
+        for i in range(len(groups)):
+            n=options[0]['cells'][i]['denominator']
+            dist_ok &= all(r['cells'][i]['denominator']==n for r in options) and sum(r['cells'][i]['numerator'] for r in options)==n
+            if meta.get('is_rating'):
+                mean=next(r for r in rows if r['q_index']==q and r.get('matrix_row')==ri and r['kind']=='mean')['cells'][i]
+                scoring=[r for r in options if r.get('score') is not None]
+                sn=sum(r['cells'][i]['numerator'] for r in scoring)
+                weighted=sum(r['score']*r['cells'][i]['numerator'] for r in scoring)
+                means_ok &= mean['base_n']==sn and near(mean['value'],weighted/sn if sn else None)
+    check('单选、矩阵和NPS分布人数守恒',dist_ok)
+    check('评分均值与选项计分加权结果一致',means_ok)
+    for q in data['questions']:
+        base=next((r for r in rows if r['q_index']==q['q_index'] and r['kind']=='total'),None)
+        check(f"Q{q['q_index']}题目基数对账",base is not None and base['cells'][0]['value']==quality['question_bases'].get(str(q['q_index'])))
+    if 'answer_valid' in expected:
+        check('预期有效样本',quality['answer_valid']==expected['answer_valid'])
+    for q,n in expected.get('question_bases',{}).items():
+        check(f'Q{q}预期基数',quality['question_bases'].get(str(q))==n)
+    for spec in expected.get('cells',[]):
+        row=next((r for r in rows if r['q_index']==int(spec['question']) and r['item']==spec.get('item','') and r['kind']==spec['kind']),None)
+        value=row['cells'][spec.get('group_index',0)]['value'] if row else None
+        check(spec.get('name','预期单元格'),value is not None and abs(value-spec['value'])<=spec.get('tolerance',1e-9),[value,spec['value']])
+    failed=[c for c in checks if not c['passed']]
+    return dict(passed=not failed,checks=checks,failed=failed)
 
 
-if __name__ == "__main__":
-    if not 2 <= len(sys.argv) <= 3:
-        raise SystemExit("Usage: validate_wjx_output.py <analysis.json> [expectations.json]")
-    main(sys.argv[1], sys.argv[2] if len(sys.argv) == 3 else None)
+def main(source, expectations=None):
+    result=validate(json.loads(Path(source).read_text()),json.loads(Path(expectations).read_text()) if expectations else {})
+    print(json.dumps(result,ensure_ascii=False,indent=2))
+    raise SystemExit(0 if result['passed'] else 1)
+
+
+if __name__=='__main__':
+    main(*sys.argv[1:])

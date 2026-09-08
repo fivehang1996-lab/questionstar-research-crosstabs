@@ -8,7 +8,7 @@ from pathlib import Path
 def main(source_path, config_path, output_path):
     data = json.loads(Path(source_path).read_text())
     config = json.loads(Path(config_path).read_text())
-    families = config.get("family_order", [])
+    families = ['总体'] + [f for f in config.get("family_order", []) if f != '总体']
     groups = data["groups"]
     selected = []
     used = set()

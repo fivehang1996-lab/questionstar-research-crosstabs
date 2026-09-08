@@ -418,4 +418,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit('Legacy project-specific CLI disabled. Use run_project.py with a project configuration; statistical reference functions remain available for validation.')

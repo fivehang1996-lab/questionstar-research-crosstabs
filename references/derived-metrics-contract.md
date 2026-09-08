@@ -48,7 +48,7 @@ Create one project JSON. Question and option numbers must come from the delivere
 
 ## Derived-segment rules
 
-- Run `scripts/apply_derived_segments.py` on de-identified response JSON and an existing labels JSON.
+- Run `scripts/apply_derived_segments.py` on de-identified response JSON and a stable-ID keyed labels JSON. Every existing label row needs `respondent_id`; input row order is irrelevant.
 - Every configured group must be mutually exclusive within its family unless the configuration explicitly models overlapping boolean groups.
 - Respondents outside all configured values receive `未回答` and are excluded from that family, but remain in Total.
 - Use `item_index` for ordinary single-choice scales and `item_value` for NPS or numeric scales whose displayed option index differs from the score.
@@ -57,12 +57,16 @@ Create one project JSON. Question and option numbers must come from the delivere
 ## T2B/B2B rules
 
 - Apply `scripts/add_box_metrics.py` before optional Total sorting.
-- Default T2B is the last two scoring options in questionnaire order; default B2B is the first two.
+- Default T2B combines the highest two distinct mapped scores; B2B combines the lowest two. Reversed option order must not change the result. Declare all scoring questions via `scales` or `rating_questions`; five options alone do not imply a scale.
 - Use explicit `top_items` and `bottom_items` when structural or non-scoring options exist.
-- Calculate combined numerators from original counts and retain the original valid base.
+- Calculate combined numerators from original counts and use the valid scoring base, excluding null/non-scoring options. Ordinary option distributions retain those options and their answered base. Means and box cells expose their own `base_n`.
 - Recalculate within-family proportion significance for the combined rows.
+- Matrix score questions use a separate Mean, T2B, B2B and base for each matrix row. Negative skip codes never enter that row's denominator.
+- Reapplying box metrics replaces existing derived rows; it must not duplicate them. `box_metrics_all_ratings` defaults to true for declared scales. Two-band overlap on scales with fewer than four score levels is rejected unless configured as disjoint custom bands or disabled.
 - Do not apply T2B/B2B to NPS unless the user explicitly requests a nonstandard additional view; keep standard detractor/passive/promoter and NPS otherwise.
 
 ## Column order
 
 Run `scripts/reorder_group_families.py` after analysis and before sorting. Reorder group definitions and every row's cell array together. Never reorder headers without the corresponding data cells.
+
+`scales` maps question ID to `{ "scores": {"1":5,"2":4,"3":3,"4":2,"5":1,"6":null}, "direction":"higher" }`. Keys are option IDs, values are analytical scores; null means non-scoring. Every option must appear. Direction is `higher`, `lower` or `neutral` and controls interpretation arrows only. `rating_questions` remains a compatibility shorthand for explicitly confirmed option-code scoring over the full scale, not only 1–5.

@@ -8,7 +8,16 @@
   "minimum_base_note": "案例不设置阈值",
   "nps_question": 8,
   "rating_questions": [3, 4, 5],
-  "auto_rating_five_point": true,
+  "auto_rating_five_point": false,
+  "low_base_warning": 30,
+  "minimum_test_base": 0,
+  "box_metrics_all_ratings": true,
+  "scales": {
+    "3": {"scores": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}, "direction": "higher"},
+    "4": {"scores": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}, "direction": "higher"},
+    "5": {"scores": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}, "direction": "higher"},
+    "7": {"scores": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}, "direction": "higher"}
+  },
   "native_segments": [
     {"family": "参与平台", "question": 1},
     {"family": "玩家经验互斥", "question": 2}

@@ -1,99 +1,76 @@
 #!/usr/bin/env python3
-"""Add configuration-driven T2B/B2B rows to an analysis JSON."""
+"""Idempotent score-aware box metrics, including every configured matrix row."""
 import json
-import math
 import sys
 from pathlib import Path
+from research_core import add_significance
 
 
-def proportion_p(x1, n1, x2, n2):
-    if not n1 or not n2:
-        return None
-    pooled = (x1 + x2) / (n1 + n2)
-    se = math.sqrt(max(pooled * (1 - pooled) * (1 / n1 + 1 / n2), 0))
-    if se == 0:
-        return 1.0 if x1 / n1 == x2 / n2 else 0.0
-    return math.erfc(abs(x1 / n1 - x2 / n2) / se / math.sqrt(2))
-
-
-def selected_rows(rows, names, count, from_top):
-    options = [row for row in rows if row.get("kind") == "percent" and not str(row.get("item", "")).startswith("【指标】")]
-    if names:
-        mapping = {row["item"]: row for row in options}
-        missing = [name for name in names if name not in mapping]
-        if missing:
-            raise ValueError(f"box metric option labels not found: {missing}")
-        return [mapping[name] for name in names]
-    return options[-count:] if from_top else options[:count]
-
-
-def combined_row(question_rows, groups, label, sources, alpha):
-    cells = []
-    for group_index in range(len(groups)):
-        chosen = [row["cells"][group_index] for row in sources]
-        numerator = sum(int(cell.get("numerator") or 0) for cell in chosen)
-        denominators = {int(cell["denominator"]) for cell in chosen if cell.get("denominator") is not None}
-        if len(denominators) > 1:
-            raise ValueError(f"inconsistent box-metric denominators for Q{question_rows[0]['q_index']}: {denominators}")
-        denominator = next(iter(denominators), 0)
-        cells.append({"value": numerator / denominator if denominator else None, "numerator": numerator, "denominator": denominator, "raw": [], "sig_high": [], "sig_low_all": False})
-
-    by_family = {}
-    for index, group in enumerate(groups):
-        if group["family"] != "总体":
-            by_family.setdefault(group["family"], []).append(index)
-    for indexes in by_family.values():
-        for i in indexes:
-            high, comparable, lower_all = [], [], True
-            for j in indexes:
-                if i == j or cells[i]["value"] is None or cells[j]["value"] is None:
-                    continue
-                p_value = proportion_p(cells[i]["numerator"], cells[i]["denominator"], cells[j]["numerator"], cells[j]["denominator"])
-                if p_value is None:
-                    continue
-                comparable.append(j)
-                if p_value < alpha and cells[i]["value"] > cells[j]["value"]:
-                    high.append(groups[j].get("letter", ""))
-                if not (p_value < alpha and cells[i]["value"] < cells[j]["value"]):
-                    lower_all = False
-            cells[i]["sig_high"] = high
-            cells[i]["sig_low_all"] = bool(comparable) and lower_all
-    return {"q_index": question_rows[0]["q_index"], "question": question_rows[0]["question"], "item": f"【指标】{label}", "metric": "二档合计", "kind": "percent", "test": "proportion", "cells": cells}
-
-
-def main(source_path, config_path, output_path):
-    data = json.loads(Path(source_path).read_text())
-    config = json.loads(Path(config_path).read_text())
-    specs = {int(spec["question"]): spec for spec in config.get("box_metrics", [])}
-    by_question = {}
-    for row in data["rows"]:
-        by_question.setdefault(int(row["q_index"]), []).append(row)
-    alpha = float(data.get("metadata", {}).get("alpha", 0.10))
-    output_rows = []
-    additions = 0
-    for question, rows in by_question.items():
-        spec = specs.get(question)
-        if not spec:
-            output_rows.extend(rows)
+def apply(data, config):
+    specs = {int(s['question']): s for s in config.get('box_metrics', [])}
+    if config.get('box_metrics_all_ratings', True):
+        for q in data['questions']:
+            if q.get('is_rating'):
+                specs.setdefault(q['q_index'], {'question': q['q_index']})
+    rows = [r for r in data['rows'] if r.get('category') not in ('t2b','b2b') and not str(r.get('item','')).startswith('【指标】')]
+    output, applied = [], set()
+    for row in rows:
+        output.append(row)
+        q, ri = row['q_index'], row.get('matrix_row')
+        if row['kind'] != 'mean' or q not in specs:
             continue
-        top = selected_rows(rows, spec.get("top_items"), int(spec.get("top_n", 2)), True)
-        bottom = selected_rows(rows, spec.get("bottom_items"), int(spec.get("bottom_n", 2)), False)
-        top_label = spec.get("top_label") or f"T2B（{' + '.join(row['item'] for row in top)}）"
-        bottom_label = spec.get("bottom_label") or f"B2B（{' + '.join(row['item'] for row in bottom)}）"
-        derived = [combined_row(rows, data["groups"], top_label, top, alpha), combined_row(rows, data["groups"], bottom_label, bottom, alpha)]
-        insert_at = 1
-        while insert_at < len(rows) and rows[insert_at].get("kind") in ("mean", "rank_mean"):
-            insert_at += 1
-        output_rows.extend(rows[:insert_at] + derived + rows[insert_at:])
-        additions += 2
-    data["rows"] = output_rows
-    data.setdefault("metadata", {})["box_metrics"] = {"enabled": True, "questions": sorted(specs), "placement": "after_mean"}
-    data.setdefault("quality", {})["output_row_count"] = len(output_rows)
-    Path(output_path).write_text(json.dumps(data, ensure_ascii=False))
-    print(json.dumps({"rows": len(output_rows), "added": additions, "questions": sorted(specs), "output": output_path}, ensure_ascii=False))
+        spec = specs[q]
+        if spec.get('enabled') is False:
+            continue
+        options = [r for r in rows if r['q_index']==q and r.get('matrix_row')==ri and r.get('option_id') is not None and r.get('score') is not None]
+        scores = sorted({r['score'] for r in options})
+        tn, bn = int(spec.get('top_n',2)), int(spec.get('bottom_n',2))
+        if tn<1 or bn<1 or (not spec.get('top_items') and tn>len(scores)) or (not spec.get('bottom_items') and bn>len(scores)):
+            raise ValueError(f'Q{q}: invalid top/bottom band size')
+        selections = []
+        for category, size, chosen_scores, names in [('t2b',tn,scores[-tn:],spec.get('top_items')), ('b2b',bn,scores[:bn],spec.get('bottom_items'))]:
+            if names:
+                selected = [r for r in options if r['item'] in names or r['item'].split('｜')[-1] in names]
+                if len(selected) != len(names):
+                    raise ValueError(f'Q{q}: box option labels missing or duplicated')
+            else:
+                selected = [r for r in options if r['score'] in chosen_scores]
+            selections.append(selected)
+            cells = []
+            for i, g in enumerate(data['groups']):
+                n = row['cells'][i]['base_n']
+                numerator = sum(r['cells'][i]['numerator'] for r in selected)
+                cells.append(dict(value=numerator/n if n else None, numerator=numerator, denominator=n, raw=[], base_n=n,
+                                  low_base=row['cells'][i].get('low_base',False), definition_based=row['cells'][i].get('definition_based',False)))
+            chosen = sorted({r['score'] for r in selected})
+            score_label = f'{chosen[0]:g}–{chosen[-1]:g}' if len(chosen)>1 and all(b-a==1 for a,b in zip(chosen,chosen[1:])) else ' + '.join(f'{v:g}' for v in chosen)
+            label = spec.get('top_label' if category=='t2b' else 'bottom_label') or f"{category.upper()}（{score_label}分）"
+            prefix = row['item'].rsplit('｜',1)[0]+'｜' if ri is not None else ''
+            direction = row.get('direction','neutral')
+            if category=='b2b':
+                direction = {'higher':'lower','lower':'higher'}.get(direction,'neutral')
+            result = dict(id=f'q{q}:r{ri or 0}:{category}:', q_index=q, question=row['question'], matrix_row=ri, option_id=None,
+                          item='【指标】'+prefix+label, kind='percent', test='proportion', metric='二档合计', category=category,
+                          direction=direction, source_row_ids=[r['id'] for r in selected], cells=cells)
+            add_significance(result, data['groups'], data['metadata'].get('alpha',.10), data['metadata'].get('minimum_test_base',0))
+            output.append(result)
+        if {r['id'] for r in selections[0]} & {r['id'] for r in selections[1]}:
+            raise ValueError(f'Q{q}: top/bottom option overlap')
+        applied.add(q)
+    unknown = set(specs)-{q['q_index'] for q in data['questions'] if q.get('is_rating')}
+    if unknown:
+        raise ValueError(f'Box metrics require declared rating questions: {sorted(unknown)}')
+    data['rows'] = output
+    data['metadata']['box_metrics'] = dict(enabled=bool(applied), questions=sorted(applied), placement='after_mean', base='valid_scoring_answers')
+    data['quality']['output_row_count'] = len(output)
+    return data
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        raise SystemExit("Usage: add_box_metrics.py <analysis.json> <config.json> <output.json>")
+def main(source, config, output):
+    data = apply(json.loads(Path(source).read_text()), json.loads(Path(config).read_text()))
+    Path(output).write_text(json.dumps(data,ensure_ascii=False,allow_nan=False))
+    print(json.dumps(dict(rows=len(data['rows']),output=str(output))))
+
+
+if __name__=='__main__':
     main(*sys.argv[1:])

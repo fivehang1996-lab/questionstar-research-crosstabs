@@ -2,182 +2,191 @@
   "passed": true,
   "checks": [
     {
-      "name": "记录数与清洗后有效样本一致",
+      "name": "总体列唯一且在首列",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "问卷题目存在",
+      "name": "题目和统计行存在",
       "passed": true,
-      "detail": 10
+      "detail": ""
     },
     {
-      "name": "总体列唯一",
+      "name": "记录ID唯一",
       "passed": true,
-      "detail": [
-        "总体",
-        "玩家经验互斥",
-        "玩家经验互斥",
-        "玩家经验互斥",
-        "玩家经验互斥",
-        "参与平台",
-        "参与平台",
-        "满意度分层",
-        "满意度分层",
-        "上手表现分层",
-        "上手表现分层",
-        "继续游玩分层",
-        "继续游玩分层",
-        "推荐意愿分层",
-        "推荐意愿分层"
-      ]
+      "detail": ""
     },
     {
-      "name": "统计行列宽一致",
+      "name": "输出规模一致",
       "passed": true,
-      "detail": {
-        "rows": 76,
-        "groups": 15
-      }
+      "detail": ""
     },
     {
-      "name": "质量摘要行列数一致",
+      "name": "统计行宽一致",
       "passed": true,
-      "detail": [
-        76,
-        76,
-        15,
-        15
-      ]
+      "detail": ""
     },
     {
-      "name": "数值均有限",
+      "name": "统计行ID唯一",
       "passed": true,
-      "detail": "无 NaN/Infinity"
+      "detail": ""
     },
     {
-      "name": "比例值范围有效",
+      "name": "组ID唯一",
       "passed": true,
-      "detail": "percent/matrix_percent 均在 0–1"
+      "detail": ""
     },
     {
-      "name": "人数与分母有效",
+      "name": "定义性分组标记与来源题一致",
       "passed": true,
-      "detail": "0 <= numerator <= denominator"
+      "detail": ""
     },
     {
-      "name": "显著性字母仅指向同族其他列",
+      "name": "总体样本与载入样本一致",
       "passed": true,
-      "detail": "不跨族、不指向自身"
+      "detail": ""
     },
     {
-      "name": "NPS 范围有效",
+      "name": "清洗人数守恒",
       "passed": true,
-      "detail": "-100 到 100"
+      "detail": ""
     },
     {
-      "name": "T2B/B2B 合计不越界",
+      "name": "人数、分母、比例、均值和NPS逐格复核",
       "passed": true,
-      "detail": "同题两项不超过 100%"
+      "detail": []
+    },
+    {
+      "name": "独立重算显著性及比较p值",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T2B/B2B与原始选项人数一致",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "单选、矩阵和NPS分布人数守恒",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "评分均值与选项计分加权结果一致",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q1题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q2题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q3题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q4题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q5题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q6题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q7题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q8题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q9题目基数对账",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Q10题目基数对账",
+      "passed": true,
+      "detail": ""
     },
     {
       "name": "预期有效样本",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q1 预期基数",
+      "name": "Q1预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q2 预期基数",
+      "name": "Q2预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q3 预期基数",
+      "name": "Q3预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q4 预期基数",
+      "name": "Q4预期基数",
       "passed": true,
-      "detail": [
-        174,
-        174
-      ]
+      "detail": ""
     },
     {
-      "name": "Q5 预期基数",
+      "name": "Q5预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q6 预期基数",
+      "name": "Q6预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q7 预期基数",
+      "name": "Q7预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q8 预期基数",
+      "name": "Q8预期基数",
       "passed": true,
-      "detail": [
-        175,
-        175
-      ]
+      "detail": ""
     },
     {
-      "name": "Q9 预期基数",
+      "name": "Q9预期基数",
       "passed": true,
-      "detail": [
-        180,
-        180
-      ]
+      "detail": ""
     },
     {
-      "name": "Q10 预期基数",
+      "name": "Q10预期基数",
       "passed": true,
-      "detail": [
-        114,
-        114
-      ]
+      "detail": ""
     },
     {
       "name": "Q3 整体满意度 Mean",
       "passed": true,
       "detail": [
         3.4,
-        3.4,
-        1e-12
+        3.4
       ]
     },
     {
@@ -185,8 +194,7 @@
       "passed": true,
       "detail": [
         0.5055555555555555,
-        0.5055555555555555,
-        1e-12
+        0.5055555555555555
       ]
     },
     {
@@ -194,8 +202,7 @@
       "passed": true,
       "detail": [
         3.80327868852459,
-        3.80327868852459,
-        1e-12
+        3.80327868852459
       ]
     },
     {
@@ -203,8 +210,7 @@
       "passed": true,
       "detail": [
         0.43103448275862066,
-        0.43103448275862066,
-        1e-12
+        0.43103448275862066
       ]
     },
     {
@@ -212,8 +218,7 @@
       "passed": true,
       "detail": [
         0.32222222222222224,
-        0.32222222222222224,
-        1e-12
+        0.32222222222222224
       ]
     },
     {
@@ -221,8 +226,7 @@
       "passed": true,
       "detail": [
         0.45,
-        0.45,
-        1e-12
+        0.45
       ]
     },
     {
@@ -230,8 +234,7 @@
       "passed": true,
       "detail": [
         0.18888888888888888,
-        0.18888888888888888,
-        1e-12
+        0.18888888888888888
       ]
     },
     {
@@ -239,8 +242,7 @@
       "passed": true,
       "detail": [
         10.857142857142858,
-        10.857142857142858,
-        1e-12
+        10.857142857142858
       ]
     },
     {
@@ -248,8 +250,7 @@
       "passed": true,
       "detail": [
         0.8277777777777777,
-        0.8277777777777777,
-        1e-12
+        0.8277777777777777
       ]
     },
     {
@@ -257,8 +258,7 @@
       "passed": true,
       "detail": [
         1.5906040268456376,
-        1.5906040268456376,
-        1e-12
+        1.5906040268456376
       ]
     },
     {
@@ -266,8 +266,7 @@
       "passed": true,
       "detail": [
         114,
-        114,
-        0.0
+        114
       ]
     }
   ],

@@ -117,6 +117,14 @@ def main() -> None:
     analysis_path = Path(sys.argv[1])
     workbook_path = Path(sys.argv[2])
     analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+    if analysis.get('metadata', {}).get('schema_version') == 2:
+        from finalize_workbook import main as finalize
+        from verify_workbook_package import verify
+        if len(sys.argv) != 4:
+            finalize(str(analysis_path), str(workbook_path))
+        result = verify(str(workbook_path), str(analysis_path))
+        print(json.dumps(result, ensure_ascii=False))
+        raise SystemExit(0 if result['passed'] else 1)
     targets = question_rows(analysis)
 
     with zipfile.ZipFile(workbook_path, "r") as source:

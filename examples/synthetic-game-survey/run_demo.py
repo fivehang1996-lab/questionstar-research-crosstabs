@@ -49,37 +49,26 @@ def main():
         if not link.exists():
             link.symlink_to(target, target_is_directory=True)
 
-    labels = output_dir / "labels.json"
-    analysis = output_dir / "analysis.json"
-    reordered = output_dir / "analysis.reordered.json"
-    final_analysis = output_dir / "final-analysis.json"
-    workbook = output_dir / "synthetic-game-survey-crosstabs.xlsx"
+    workbook = output_dir / "research-crosstabs.xlsx"
     previews = output_dir / "previews"
     validation = output_dir / "validation-receipt.json"
     verification = output_dir / "workbook-verification.json"
     link_verification = output_dir / "index-link-verification.json"
 
-    run([args.python, REPO_ROOT / "scripts/apply_derived_segments.py", source_dir / "responses.deidentified.json", "-", config, labels])
-    run([args.python, REPO_ROOT / "scripts/analyze_wjx_dynamic.py", source_dir, analysis, labels, config])
-    run([args.python, REPO_ROOT / "scripts/reorder_group_families.py", analysis, config, reordered])
-    run([args.python, REPO_ROOT / "scripts/add_box_metrics.py", reordered, config, final_analysis])
-    run([args.python, REPO_ROOT / "scripts/validate_wjx_output.py", final_analysis, expectations], stdout_path=validation)
-
-    environment = dict(os.environ)
-    environment["WJX_PYTHON_PATH"] = str(args.python)
-    run([args.node, REPO_ROOT / "scripts/build_wjx_crosstab_workbook.mjs", final_analysis, workbook, previews], env=environment)
-    run([args.node, REPO_ROOT / "scripts/verify_wjx_workbook.mjs", workbook, "--compact"], stdout_path=verification)
-    run([args.python, REPO_ROOT / "scripts/add_internal_index_links.py", final_analysis, workbook, "--verify-only"], stdout_path=link_verification)
+    run([args.python, REPO_ROOT / "scripts/run_project.py", '--source', source_dir, '--config', config,
+         '--expectations', expectations, '--output-dir', output_dir, '--node', args.node])
+    run([args.python, REPO_ROOT / "scripts/add_internal_index_links.py", output_dir/'analysis.json', workbook, "--verify-only"], stdout_path=link_verification)
 
     if args.publish:
         published_output = EXAMPLE_DIR / "outputs"
         published_preview = EXAMPLE_DIR / "previews"
         published_output.mkdir(exist_ok=True)
         published_preview.mkdir(exist_ok=True)
-        shutil.copy2(workbook, published_output / workbook.name)
-        shutil.copy2(previews / "00-index.png", published_preview / "index.png")
+        shutil.copy2(workbook, published_output / 'synthetic-game-survey-crosstabs-v2.xlsx')
+        shutil.copy2(previews / "01-index.png", published_preview / "index.png")
         shutil.copy2(previews / "02-table.png", published_preview / "frequency-table.png")
         shutil.copy2(previews / "03-significance.png", published_preview / "significance-table.png")
+        shutil.copy2(previews / "00-overview.png", published_preview / "overview.png")
         shutil.copy2(validation, EXAMPLE_DIR / "validation-receipt.json")
         shutil.copy2(verification, EXAMPLE_DIR / "workbook-verification.json")
         shutil.copy2(link_verification, EXAMPLE_DIR / "index-link-verification.json")

@@ -1,204 +1,189 @@
 #!/usr/bin/env python3
-"""Configuration-driven survey crosstab analyzer."""
+"""Analyze cleaned, keyed survey records with explicit score mappings."""
 import json
-import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-
-import numpy as np
-
-from analyze_wjx_crosstabs import add_significance
+from research_core import VERSION, add_significance, align_labels, clean, integer, keyed, letters, primary, scale_for, selections, source_value
 
 
-def clean(value):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", value or "")).strip()
+def analyze(survey, records, config=None, labels_meta=None, receipt=None):
+    config, labels_meta, receipt = config or {}, labels_meta or {}, receipt or {}
+    keyed(records)
+    labels = align_labels(records, labels_meta) if 'labels' in labels_meta else None
+    questions = {int(q['q_index']): q for q in survey.get('questions', [])
+                 if integer(q.get('q_index')) and q.get('q_title') and integer(q.get('q_type')) not in (1, 2)}
+    if not questions:
+        raise ValueError('No analyzable questions')
+    alpha = float(config.get('alpha', 0.10))
+    if not 0 < alpha < 1:
+        raise ValueError('alpha must lie between zero and one')
+    nps_q = int(config['nps_question']) if config.get('nps_question') else None
+    if nps_q is not None and nps_q not in questions:
+        raise ValueError('Configured NPS question does not exist')
+    low_n, min_test_n = int(config.get('low_base_warning', 30)), int(config.get('minimum_test_base', 0))
+    groups = [{'family': '总体', 'label': '总体', 'members': list(range(len(records))), 'source_questions': []}]
+    specs = []
+    if labels is not None:
+        specs += [dict(s, field=s.get('field', 'exclusive_group')) for s in labels_meta.get('exclusive_groups', [])]
+        specs += labels_meta.get('label_groups', [])
+        for spec in labels_meta.get('boolean_groups', []):
+            groups.append(dict(family=spec['family'], label=spec['label'], source_questions=spec.get('source_questions', []),
+                               members=[i for i,label in enumerate(labels) if (not spec.get('requires_match',True) or label.get('matched',True)) and label.get(spec['field']) is True]))
+        for spec in config.get('categorical_label_fields', []):
+            values = spec.get('values') or list(dict.fromkeys(r.get(spec['field']) for r in labels if r.get(spec['field']) not in (None, '', '未回答')))
+            specs += [dict(spec, label=v) for v in values]
+        for spec in specs:
+            field = spec.get('field', spec['family'])
+            groups.append(dict(family=spec['family'], label=spec['label'], source_questions=spec.get('source_questions', []),
+                               members=[i for i, label in enumerate(labels) if (not spec.get('requires_match',True) or label.get('matched', True)) and label.get(field) == spec['label']]))
+        for spec in config.get('boolean_label_prefixes', []):
+            fields = list(dict.fromkeys(k for label in labels for k in label if k.startswith(spec['prefix'])))
+            for field in fields:
+                groups.append(dict(family=spec['family'], label=field[len(spec['prefix']):], source_questions=[],
+                                   members=[i for i, label in enumerate(labels) if label.get('matched', True) and label.get(field) is True]))
+    for spec in config.get('native_segments', []):
+        q = int(spec['question'])
+        if q not in questions:
+            raise ValueError(f'Native segment Q{q} does not exist')
+        meta = questions[q]
+        if integer(meta.get('q_type')) not in (3, 4) or integer(meta.get('q_subtype')) == 402:
+            raise ValueError(f'Native segment Q{q} must be single or multi choice')
+        allowed = {int(o['item_index']) for o in meta.get('items', [])}
+        for option in meta.get('items', []):
+            key = int(option['item_index'])
+            groups.append(dict(family=spec['family'], label=clean(option['item_title']), source_questions=[q],
+                               members=[i for i, r in enumerate(records) if key in (selections(r, q, allowed) or set())
+                                        and (integer(meta.get('q_type'))==4 or len(selections(r,q,allowed) or set())==1)]))
+    counters, identities = defaultdict(int), set()
+    for group in groups:
+        identity = (group['family'], group['label'])
+        if identity in identities:
+            raise ValueError(f'Duplicate group {identity}')
+        identities.add(identity)
+        counters[group['family']] += 1
+        group.update(id=f"g{len(identities)}", letter='' if group['family']=='总体' else letters(counters[group['family']]), base_n=len(group['members']))
+    overlaps = []
+    for i, group in enumerate(groups):
+        for other in groups[i+1:]:
+            shared = set(group['members']) & set(other['members'])
+            if group['family'] != '总体' and group['family'] == other['family'] and shared:
+                overlaps.append(dict(family=group['family'], left=group['label'], right=other['label'], shared_n=len(shared)))
+    rows, question_meta, bases = [], [], {}
+
+    def append(q, item, kind, test, samples, *, option=None, matrix_row=None, metric=None, direction='neutral', category=None):
+        cells = []
+        for group in groups:
+            values = [samples[i] for i in group['members'] if samples[i] is not None]
+            n = len(values)
+            cell = dict(value=None, numerator=None, denominator=None, raw=[], base_n=n, low_base=0<n<low_n,
+                        definition_based=q in group['source_questions'])
+            if kind in ('total', 'base'):
+                cell['value'] = n
+            elif test == 'proportion':
+                cell.update(numerator=sum(values), denominator=n, value=sum(values)/n if n else None)
+            else:
+                cell.update(raw=values, value=sum(values)/n*(100 if kind=='nps' else 1) if n else None)
+            cells.append(cell)
+        row = dict(q_index=q, question=f"Q{q}. {clean(questions[q]['q_title'])}", item=item, kind=kind, test=test,
+                   metric=metric or {'total':'total', 'base':'有效基数', 'mean':'均值', 'nps':'NPS', 'rank_mean':'平均名次'}.get(kind, '列百分比'),
+                   option_id=option, matrix_row=matrix_row, direction=direction, category=category, cells=cells)
+        row['id'] = f"q{q}:r{matrix_row or 0}:{category or kind}:{option if option is not None else ''}"
+        add_significance(row, groups, alpha, min_test_n)
+        rows.append(row)
+
+    for q, meta in sorted(questions.items()):
+        qtype, subtype = integer(meta.get('q_type')), integer(meta.get('q_subtype'))
+        options = [(int(o['item_index']), clean(o.get('item_title'))) for o in meta.get('items', [])]
+        allowed = {k for k, _ in options}
+        scale = None if q == nps_q else scale_for(meta, config)
+        question_meta.append(dict(q_index=q, title=clean(meta['q_title']), q_type=qtype, q_subtype=subtype, item_count=len(options),
+                     row_count=len(meta.get('item_rows', [])), is_rating=scale is not None, is_nps=q==nps_q,
+                     ordered=bool(scale or q==nps_q or qtype==7 or q in config.get('ordered_questions', [])),
+                     score_map=scale['scores'] if scale else None, direction=scale['direction'] if scale else 'neutral'))
+        if q == nps_q:
+            values = [source_value(r, {'question':q, 'source':'item_value'}) for r in records]
+            values = [v if v is not None and v.is_integer() and 0<=v<=10 else None for v in values]
+            append(q, '', 'total', 'none', values)
+            append(q, '', 'nps', 'welch', [None if v is None else (1 if v>=9 else -1 if v<=6 else 0) for v in values], direction='higher')
+            for index, (label, lo, hi) in enumerate([('批评者（0–6分）',0,6), ('中立者（7–8分）',7,8), ('推荐者（9–10分）',9,10)]):
+                append(q, label, 'percent', 'proportion', [None if v is None else int(lo<=v<=hi) for v in values], option=index, category='nps_band')
+        elif qtype == 5:
+            values = [1 if primary(r,q).get('answered') or clean(primary(r,q).get('answer_text')) not in ('','(空)') else None for r in records]
+            append(q, '', 'total', 'none', values)
+        elif subtype == 402:
+            values = []
+            for record in records:
+                ranks, used_positions = {}, set()
+                for a in record.get('answer_items', {}).values():
+                    if integer(a.get('q_index')) != q:
+                        continue
+                    position = integer(a.get('q_column'))
+                    raw = a.get('item_index') or []
+                    option = integer(raw[0]) if raw else None
+                    if option is None or option < 0:
+                        continue
+                    if option not in allowed or not position or position<1 or position in used_positions or option in ranks:
+                        raise ValueError(f'Q{q}: invalid or duplicate ranking slot')
+                    ranks[option] = position
+                    used_positions.add(position)
+                values.append(ranks or None)
+            append(q, '', 'total', 'none', values)
+            for option, label in options:
+                append(q, label, 'percent', 'proportion', [None if v is None else int(option in v) for v in values], option=option, metric='入选率')
+                append(q, label, 'rank_mean', 'welch', [v.get(option) if v else None for v in values], option=option, direction='lower')
+        elif qtype in (3, 4, 7):
+            matrix = [(int(o['item_index']), clean(o.get('item_title'))) for o in meta.get('item_rows', [])] if qtype==7 else [(None,'')]
+            if not matrix:
+                raise ValueError(f'Q{q}: matrix row definitions missing')
+            samples = {}
+            for ri, _ in matrix:
+                samples[ri] = [selections(r,q,allowed,ri) for r in records]
+                if qtype in (3,7):
+                    samples[ri] = [v if v is not None and len(v)==1 else None for v in samples[ri]]
+            values = [1 if any(samples[ri][i] is not None for ri,_ in matrix) else None for i in range(len(records))]
+            append(q, '', 'total', 'none', values)
+            for ri, label in matrix:
+                selected = samples[ri]
+                prefix = f'{label}｜' if ri is not None else ''
+                if ri is not None:
+                    append(q, f'{label}｜有效基数', 'base', 'none', selected, matrix_row=ri)
+                if scale:
+                    scored = [scale['scores'].get(next(iter(v))) if v else None for v in selected]
+                    if any(v is not None and score is None for v,score in zip(selected,scored)):
+                        append(q, prefix+'有效评分基数', 'base', 'none', scored, matrix_row=ri, category='score_base')
+                    append(q, f'{prefix}Mean' if ri is not None else '', 'mean', 'welch', scored, matrix_row=ri, direction=scale['direction'])
+                for option, option_label in options:
+                    append(q, prefix+option_label, 'matrix_percent' if ri is not None else 'percent', 'proportion',
+                           [None if v is None else int(option in v) for v in selected], option=option, matrix_row=ri)
+                    rows[-1]['score'] = scale['scores'].get(option) if scale else None
+        else:
+            raise ValueError(f'Q{q}: unsupported type {qtype}/{subtype}; define an adapter before analysis')
+        bases[str(q)] = next(r['cells'][0]['value'] for r in rows if r['q_index']==q and r['kind']=='total')
+    quality = dict(survey_title=survey.get('title'), vid=survey.get('vid'), answer_total=survey.get('answer_total'),
+                   answer_valid=len(records), records_loaded=len(records), duplicate_respondent_ids=0,
+                   question_count=len(questions), output_row_count=len(rows), output_column_count=len(groups),
+                   question_bases=bases, nps_encoding='item_value 原生整数 0–10' if nps_q else '不适用',
+                   group_scope='；'.join(dict.fromkeys(g['family'] for g in groups[1:])), source_receipt=receipt, overlaps=overlaps,
+                   cleaning=receipt.get('cleaning'), low_base_warning=low_n)
+    if labels is not None and labels_meta.get('linkage', True):
+        matched = sum(bool(r.get('matched',True)) for r in labels)
+        quality['linkage'] = dict(matched=matched, target_total=len(records), coverage=matched/len(records) if records else 0)
+    metadata = dict(config, title=survey.get('title'), vid=survey.get('vid'), alpha=alpha, nps_question=nps_q,
+                    engine_version=VERSION, schema_version=2, overlap_warning=bool(overlaps), low_base_warning=low_n)
+    return dict(metadata=metadata, groups=[{k:v for k,v in g.items() if k!='members'} for g in groups], questions=question_meta, rows=rows, quality=quality)
 
 
 def main(source_dir, output_path, labels_path=None, config_path=None):
     source = Path(source_dir)
-    survey = json.loads((source / "survey.json").read_text())
-    records = json.loads((source / "responses.deidentified.json").read_text())
-    receipt_path = source / "fetch-receipt.json"
-    receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-    labels_meta = json.loads(Path(labels_path).read_text()) if labels_path and labels_path != "-" else {}
-    labels = labels_meta.get("labels")
-    config = json.loads(Path(config_path).read_text()) if config_path and config_path != "-" else {}
-    if labels is not None and len(labels) != len(records):
-        raise ValueError(f"record/label mismatch: {len(records)} vs {len(labels)}")
-
-    questions = {}
-    for question in survey.get("questions", []):
-        index = int(question.get("q_index") or 0)
-        if index > 0 and question.get("q_title") and int(question.get("q_type") or 0) not in (1, 2):
-            questions[index] = question
-
-    people = []
-    for record in records:
-        by_question = defaultdict(list)
-        for answer in record.get("answer_items", {}).values():
-            by_question[int(answer.get("q_index") or 0)].append(answer)
-        people.append(by_question)
-
-    def primary(person, question):
-        answers = person.get(question, [])
-        return next((answer for answer in answers if int(answer.get("q_column") or 0) == 0), answers[0] if answers else None)
-
-    def indexes(person, question):
-        answer = primary(person, question) or {}
-        return [int(value) for value in answer.get("item_index", []) if isinstance(value, (int, float)) and int(value) >= 0]
-
-    def single(person, question):
-        values = indexes(person, question)
-        return values[0] if values else None
-
-    def selected(person, question):
-        answer = primary(person, question)
-        if not answer:
-            return None
-        raw = answer.get("item_index", [])
-        if not raw or any(int(value) < 0 for value in raw):
-            return None
-        return {int(value) for value in raw}
-
-    def numeric_value(person, question):
-        answer = primary(person, question) or {}
-        try:
-            return float(answer.get("item_value"))
-        except (TypeError, ValueError):
-            return None
-
-    def ranking(person, question):
-        result = {}
-        for answer in person.get(question, []):
-            position = int(answer.get("q_column") or 0)
-            values = [int(value) for value in answer.get("item_index", [])]
-            if position > 0 and values and values[0] > 0:
-                result[values[0]] = position
-        return result or None
-
-    def answered(person, question):
-        qtype = int(questions[question].get("q_type") or 0)
-        if qtype == 5:
-            answer = primary(person, question) or {}
-            return bool(answer.get("answered") or str(answer.get("answer_text") or "").strip())
-        if qtype == 4:
-            return selected(person, question) is not None
-        if qtype == 7:
-            return bool(person.get(question))
-        return single(person, question) is not None
-
-    groups = [{"family": "总体", "label": "总体", "members": list(range(len(people))), "letter": ""}]
-    if labels:
-        for spec in labels_meta.get("exclusive_groups", []):
-            field = spec.get("field", "exclusive_group")
-            groups.append({"family": spec["family"], "label": spec["label"], "members": [i for i, row in enumerate(labels) if row.get(field) == spec["label"]]})
-        for spec in labels_meta.get("label_groups", []):
-            field = spec.get("field", spec["family"])
-            groups.append({"family": spec["family"], "label": spec["label"], "members": [i for i, row in enumerate(labels) if row.get(field) == spec["label"]]})
-        for spec in config.get("categorical_label_fields", []):
-            values = spec.get("values") or list(dict.fromkeys(row.get(spec["field"]) for row in labels if row.get(spec["field"]) not in (None, "")))
-            for value in values:
-                groups.append({"family": spec["family"], "label": value, "members": [i for i, row in enumerate(labels) if row.get(spec["field"]) == value]})
-        for spec in config.get("boolean_label_prefixes", []):
-            keys = list(dict.fromkeys(key for row in labels for key in row if key.startswith(spec["prefix"])))
-            for key in keys:
-                groups.append({"family": spec["family"], "label": key[len(spec["prefix"]):], "members": [i for i, row in enumerate(labels) if row.get(key) is True]})
-
-    for spec in config.get("native_segments", []):
-        question = int(spec["question"])
-        for option in questions.get(question, {}).get("items", []):
-            option_index = int(option.get("item_index") or 0)
-            groups.append({"family": spec["family"], "label": clean(option.get("item_title")), "members": [i for i, person in enumerate(people) if single(person, question) == option_index]})
-
-    counters = defaultdict(int)
-    for group in groups[1:]:
-        counters[group["family"]] += 1
-        number = counters[group["family"]]
-        group["letter"] = chr(64 + number) if number <= 26 else f"A{chr(64 + number - 26)}"
-
-    alpha = float(config.get("alpha", 0.10))
-    nps_question = int(config["nps_question"]) if config.get("nps_question") else None
-    rating_questions = {int(value) for value in config.get("rating_questions", [])}
-    auto_rating = bool(config.get("auto_rating_five_point", True))
-    rows = []
-
-    def append(question, item, metric, kind, test, cell_function):
-        cells = []
-        for group in groups:
-            cell = cell_function(group["members"])
-            cell.setdefault("value", None)
-            cell.setdefault("numerator", None)
-            cell.setdefault("denominator", None)
-            cell.setdefault("raw", [])
-            cell.setdefault("sig_high", [])
-            cell.setdefault("sig_low_all", False)
-            cells.append(cell)
-        row = {"q_index": question, "question": f"Q{question}. {clean(questions[question]['q_title'])}", "item": item, "metric": metric, "kind": kind, "test": test, "cells": cells}
-        add_significance(row, groups, alpha)
-        rows.append(row)
-
-    for question in sorted(questions):
-        meta = questions[question]
-        qtype, subtype = int(meta.get("q_type") or 0), int(meta.get("q_subtype") or 0)
-        if question == nps_question:
-            def scores(indices):
-                return [numeric_value(people[i], question) for i in indices if numeric_value(people[i], question) is not None and 0 <= numeric_value(people[i], question) <= 10]
-            append(question, "", "total", "total", "none", lambda indices: {"value": len(scores(indices))})
-            append(question, "", "NPS", "nps", "welch", lambda indices: (lambda values: {"value": (sum(value >= 9 for value in values) - sum(value <= 6 for value in values)) * 100 / len(values) if values else None, "raw": [1 if value >= 9 else -1 if value <= 6 else 0 for value in values]})(scores(indices)))
-            for label, predicate in [("批评者（0–6分）", lambda value: value <= 6), ("中立者（7–8分）", lambda value: 7 <= value <= 8), ("推荐者（9–10分）", lambda value: value >= 9)]:
-                append(question, label, "列百分比", "percent", "proportion", lambda indices, pred=predicate: (lambda values: {"value": sum(pred(value) for value in values) / len(values) if values else None, "numerator": sum(pred(value) for value in values), "denominator": len(values)})(scores(indices)))
-            continue
-
-        if qtype == 5:
-            append(question, "", "total", "total", "none", lambda indices: {"value": sum(answered(people[i], question) for i in indices)})
-            continue
-        if qtype == 7:
-            append(question, "", "total", "total", "none", lambda indices: {"value": sum(answered(people[i], question) for i in indices)})
-            options = [(int(option.get("item_index") or 0), clean(option.get("item_title"))) for option in meta.get("items", [])]
-            for row_option in meta.get("item_rows", []):
-                row_index, row_label = int(row_option.get("item_index") or 0), clean(row_option.get("item_title"))
-                for option_index, option_label in options:
-                    def matrix_cell(indices, ri=row_index, oi=option_index):
-                        valid = [people[i] for i in indices if any(int(answer.get("q_row") or 0) == ri and answer.get("item_index") for answer in people[i].get(question, []))]
-                        count = sum(any(int(answer.get("q_row") or 0) == ri and oi in [int(value) for value in answer.get("item_index", [])] for answer in person.get(question, [])) for person in valid)
-                        return {"value": count / len(valid) if valid else None, "numerator": count, "denominator": len(valid)}
-                    append(question, f"{row_label}｜{option_label}", "列百分比", "matrix_percent", "proportion", matrix_cell)
-            continue
-        if subtype == 402:
-            append(question, "", "total", "total", "none", lambda indices: {"value": sum(ranking(people[i], question) is not None for i in indices)})
-            for option in meta.get("items", []):
-                option_index, label = int(option.get("item_index") or 0), clean(option.get("item_title"))
-                append(question, label, "入选率", "percent", "proportion", lambda indices, oi=option_index: (lambda values: {"value": sum(oi in value for value in values) / len(values) if values else None, "numerator": sum(oi in value for value in values), "denominator": len(values)})([ranking(people[i], question) for i in indices if ranking(people[i], question) is not None]))
-                append(question, label, "平均名次", "rank_mean", "welch", lambda indices, oi=option_index: (lambda values: {"value": float(np.mean(values)) if values else None, "raw": values})([ranking(people[i], question)[oi] for i in indices if ranking(people[i], question) and oi in ranking(people[i], question)]))
-            continue
-
-        is_multi = qtype == 4 and subtype == 4
-        append(question, "", "total", "total", "none", lambda indices: {"value": sum(answered(people[i], question) for i in indices)})
-        if is_multi:
-            for option in meta.get("items", []):
-                option_index, label = int(option.get("item_index") or 0), clean(option.get("item_title"))
-                append(question, label, "列百分比", "percent", "proportion", lambda indices, oi=option_index: (lambda values: {"value": sum(oi in value for value in values) / len(values) if values else None, "numerator": sum(oi in value for value in values), "denominator": len(values)})([selected(people[i], question) for i in indices if selected(people[i], question) is not None]))
-            continue
-
-        is_rating = question in rating_questions or (auto_rating and qtype == 3 and len(meta.get("items", [])) == 5)
-        if is_rating:
-            append(question, "", "均值", "mean", "welch", lambda indices: (lambda values: {"value": float(np.mean(values)) if values else None, "raw": values})([single(people[i], question) for i in indices if single(people[i], question) in range(1, 6)]))
-        for option in meta.get("items", []):
-            option_index, label = int(option.get("item_index") or 0), clean(option.get("item_title"))
-            append(question, label, "列百分比", "percent", "proportion", lambda indices, oi=option_index: (lambda values: {"value": sum(value == oi for value in values) / len(values) if values else None, "numerator": sum(value == oi for value in values), "denominator": len(values)})([single(people[i], question) for i in indices if single(people[i], question) is not None]))
-
-    respondent_ids = [record.get("respondent_id") for record in records]
-    quality = {"survey_title": survey.get("title"), "vid": survey.get("vid"), "answer_total": survey.get("answer_total"), "answer_valid": len(records), "answer_invalid": max(0, int(survey.get("answer_total") or len(records)) - len(records)), "records_loaded": len(records), "duplicate_respondent_ids": len(respondent_ids) - len(set(respondent_ids)), "question_count": len(questions), "output_row_count": len(rows), "output_column_count": len(groups), "question_bases": {str(question): sum(answered(person, question) for person in people) for question in questions}, "nps_encoding": "item_value 原生 0–10" if nps_question else "不适用", "group_scope": "；".join(dict.fromkeys(group["family"] for group in groups if group["family"] != "总体")), "source_receipt": receipt}
-    if labels is not None and labels_meta.get("linkage", True):
-        matched = sum(bool(label.get("matched", True)) for label in labels)
-        quality["linkage"] = {"matched": matched, "target_total": len(labels), "coverage": matched / len(labels) if labels else 0}
-    result = {"metadata": {"title": survey.get("title"), "vid": survey.get("vid"), "alpha": alpha, "scope": config.get("scope", "配置驱动交叉表"), "subtitle": config.get("subtitle"), "mapping_note": config.get("mapping_note"), "multi_select_missing_note": config.get("multi_select_missing_note"), "overlap_warning": config.get("overlap_warning"), "minimum_base_note": config.get("minimum_base_note"), "nps_question": nps_question, "indicator_labels": config.get("indicator_labels", {}), "family_display": config.get("family_display", {})}, "groups": [{key: value for key, value in group.items() if key != "members"} for group in groups], "questions": [{"q_index": question, "title": clean(meta.get("q_title")), "q_type": meta.get("q_type"), "q_subtype": meta.get("q_subtype"), "item_count": len(meta.get("items", [])), "row_count": len(meta.get("item_rows", []))} for question, meta in sorted(questions.items())], "rows": rows, "quality": quality}
-    Path(output_path).write_text(json.dumps(result, ensure_ascii=False))
-    print(json.dumps(quality, ensure_ascii=False, indent=2))
+    read = lambda p: json.loads(Path(p).read_text())
+    result = analyze(read(source/'survey.json'), read(source/'responses.deidentified.json'),
+                     read(config_path) if config_path and str(config_path)!='-' else {},
+                     read(labels_path) if labels_path and str(labels_path)!='-' else {},
+                     read(source/'fetch-receipt.json') if (source/'fetch-receipt.json').exists() else {})
+    Path(output_path).write_text(json.dumps(result, ensure_ascii=False, allow_nan=False))
+    print(json.dumps(result['quality'], ensure_ascii=False))
 
 
-if __name__ == "__main__":
-    if not 3 <= len(sys.argv) <= 5:
-        raise SystemExit("Usage: analyze_wjx_dynamic.py <source_dir> <output.json> [labels.json|-] [config.json|-]")
-    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None, sys.argv[4] if len(sys.argv) > 4 else None)
+if __name__ == '__main__':
+    main(*sys.argv[1:])

@@ -1,4 +1,9 @@
 {
+  "alpha": 0.10,
+  "low_base_warning": 30,
+  "scales": {
+    "4": {"scores": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5}, "direction": "higher"}
+  },
   "derived_segments": [
     {
       "family": "整体体验分层",

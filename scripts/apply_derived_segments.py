@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from research_core import align_labels, keyed, source_value as validated_source, classify as validated_classify
 
 
 def primary(rec, question):
@@ -42,21 +43,21 @@ def main(records_path, labels_path, config_path, output_path):
     records = json.loads(Path(records_path).read_text())
     config = json.loads(Path(config_path).read_text())
     if labels_path == "-":
-        meta = {"labels": [{"matched": True} for _ in records], "linkage": False}
+        meta = {"labels": [{"respondent_id": r["respondent_id"], "matched": True} for r in records], "linkage": False}
     else:
         meta = json.loads(Path(labels_path).read_text())
-    labels = meta["labels"]
-    if len(records) != len(labels):
-        raise ValueError(f"record/label mismatch: {len(records)} vs {len(labels)}")
+    labels = align_labels(records, meta)
+    meta["labels"] = labels
 
-    label_groups = []
+    new_families = {spec['family'] for spec in config.get('derived_segments', [])}
+    label_groups = [spec for spec in meta.get('label_groups', []) if spec['family'] not in new_families]
     for spec in config.get("derived_segments", []):
         field = spec.get("field") or spec["family"]
         for rec, label in zip(records, labels):
             label.setdefault("matched", True)
-            label[field] = classify(source_value(rec, spec), spec["groups"])
+            label[field] = validated_classify(validated_source(rec, spec), spec["groups"])
         for group in spec["groups"]:
-            label_groups.append({"family": spec["family"], "field": field, "label": group["label"]})
+            label_groups.append({"family": spec["family"], "field": field, "label": group["label"], "source_questions": [int(spec['question'])], "requires_match": False})
 
     meta["label_groups"] = label_groups
     meta["family_order"] = config.get("family_order", [])

@@ -10,6 +10,7 @@
 - 指标：Mean、T2B、B2B、NPS、入选率、平均名次
 - 显著性：同一分组族内的比例检验和 Welch 检验
 - 输出：Index 超链接、频率表、显著性检验、说明、变量映射、数据质量
+- v2：分组族下拉概览、可编辑横向图表、矩阵 Mean/T2B/B2B、低基数与定义性分组标记、返回目录、冻结分群导航
 - 排序：本案例使用默认模式，保留问卷原始选项顺序
 
 ## 案例文件
@@ -17,11 +18,14 @@
 - `source/`：合成问卷结构、180 份答卷和来源回执
 - `project-config.json`：原生分组、指标分层、T2B/B2B、NPS 与列顺序配置
 - `expectations.json`：独立样本量、题目基数和关键单元格预期值
-- `outputs/synthetic-game-survey-crosstabs.xlsx`：最终可下载的 Excel 案例
+- `outputs/synthetic-game-survey-crosstabs.xlsx`：历史版本，保留对照
+- `outputs/synthetic-game-survey-crosstabs-v2.xlsx`：当前 v2 完整 Excel 案例
 - `validation-receipt.json`：分析 JSON 的结构、统计与预期值校验
 - `workbook-verification.json`：工作簿页签、标题和公式错误检查
-- `index-link-verification.json`：20 个 Index 链接与对应蓝色题目标题行的逐项校验
-- `previews/`：Index、频率表和显著性表预览
+- `index-link-verification.json`：20 个目录前进链接、20 个返回链接及工作簿检查
+- `previews/`：指标概览、Index、频率表和显著性表预览
+
+![指标概览预览](previews/overview.png)
 
 ![频率表预览](previews/frequency-table.png)
 
@@ -46,6 +50,6 @@ WJX_NODE_MODULES=/path/to/node_modules \
 python3 examples/synthetic-game-survey/run_demo.py --regenerate-source
 ```
 
-生成文件默认写入 `examples/synthetic-game-survey/build/`。维护者确认结果后可增加 `--publish`，更新仓库内的 Excel、预览图和校验回执。
+生成文件默认写入 `examples/synthetic-game-survey/build/`，该目录必须为空；重复运行使用 `--output-dir` 指定新的版本目录。维护者确认结果后可增加 `--publish`，更新仓库内的 v2 Excel、预览图和校验回执。
 
 合成数据固定使用种子 `8122026`。重新生成后，所有基数和关键结果应与 `expectations.json` 一致。

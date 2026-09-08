@@ -16,7 +16,7 @@
 - Multi-select: option selection percentages; totals may exceed 100%.
 - Matrix: calculate and test each matrix row independently.
 - Ranking: selection rate plus average rank among selected respondents.
-- NPS: detractor `-1`, passive `0`, promoter `+1`; report NPS as `(promoters-detractors)/valid N` and do not report a mean.
+- NPS: detractor `-1`, passive `0`, promoter `+1`; report NPS as `100 × (promoters-detractors)/valid N` (−100 to 100 points) and do not report a mean.
 - Derived label segments: classify respondents from original `item_index` or `item_value`, add the categories as a new column family, and cross every question by them. Keep unclassified/missing respondents in Total and out of that family.
 
 ## Significance
@@ -28,3 +28,12 @@
 - Mark a cell high with the letters of same-family columns it significantly exceeds.
 - Mark a cell low only when it is significantly lower than every other comparable same-family column.
 - Warn that overlapping segment memberships violate strict independent-sample assumptions and should be interpreted as exploratory unless a paired/overlap-aware method is selected.
+
+## Integrity and interpretation
+
+- Compute actual within-family overlaps from respondent memberships, not from a manually supplied warning flag.
+- Add a low-base advisory (default n < 30) per cell's effective base. This does not delete samples or alter test eligibility. Any extra minimum test base must be explicitly configured.
+- Mark self-crosses where a source question defines the column family. Retain the user's numerical/statistical output but label the relationship as definition-based, not a new research finding.
+- Store comparison target IDs and p values alongside letters. Validators recalculate test decisions from raw counts/vectors and check that every target belongs to the same family.
+- Validate `value = numerator / denominator`, mean against its vector and score-weighted distribution, NPS against codes, box numerators against original option rows, and sample accounting against the fetch/cleaning receipts.
+- Proportion z-tests and Welch tests preserve the accepted exploratory method. No automatic multiple-comparison correction or overlap-aware replacement is introduced.
